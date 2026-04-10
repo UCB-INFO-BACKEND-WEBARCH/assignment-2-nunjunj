@@ -1,0 +1,44 @@
+
+
+services:
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: tasks_db
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "user"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    
+  redis:
+    image: redis:7
+
+  app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/tasks_db
+      - REDIS_URL=redis://redis:6379/0
+      - FLASK_APP=app:create_app
+      - FLASK_RUN_HOST=0.0.0.0
+    depends_on:
+      db:
+        condition: service_healthy
+      
+  worker:
+    build: .
+    command: python worker.py
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+  
+volumes:
+  db_data:
